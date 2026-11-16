@@ -1,17 +1,20 @@
-# Python
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-venv/
-env/
+# Build output
+build/
+cmake-build-*/
+out/
 
-# Generated output (keep the folder, not the files)
+# Generated results (keep the folder, not the files)
 results/*
 !results/.gitkeep
 
 # Editors / OS
+.vs/
 .vscode/
 .idea/
+*.user
 .DS_Store
 Thumbs.db
+
+# Old Python version
+__pycache__/
+.pytest_cache/

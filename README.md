@@ -1,21 +1,35 @@
 # CSD3131 Assignment 2: Seam Carving
 
 Content-aware image resizing using seam carving, implemented three ways:
-Dynamic Programming, Greedy, and Graph Cut (min-cut/max-flow).
+Dynamic Programming, Greedy, and Graph Cut (min-cut/max-flow). Written in C++17
+with OpenCV.
 
-## Setup
+## Setup (WSL / Ubuntu)
 
 ```bash
-pip install -r requirements.txt
+sudo apt update
+sudo apt install -y g++ cmake libopencv-dev
 ```
+
+## Build
+
+From the repo folder:
+
+```bash
+cmake -S . -B build
+cmake --build build -j
+```
+
+Rebuild with the second line after any change. If you add a new file in
+`src/methods/`, run both lines again.
 
 ## Run
 
 ```bash
-python main.py images/your_image.jpg --width 300 --method dp
-python main.py images/your_image.jpg --scale 0.8 --method greedy
-python main.py images/your_image.jpg --width 300 --height 200 --save-seams --save-energy
-python main.py images/your_image.jpg --width 300 --energy gradient --energy-mode full
+./build/seamcarve images/broadway.jpg --width 600 --method dp
+./build/seamcarve images/windmill.jpg --scale 0.75 --save-seams --save-energy
+./build/seamcarve images/sunset.jpg --width 600 --energy gradient --energy-mode full
+./build/seamcarve --help
 ```
 
 | Option | Meaning |
@@ -32,7 +46,8 @@ python main.py images/your_image.jpg --width 300 --energy gradient --energy-mode
 ## Test
 
 ```bash
-python -m pytest -v
+./build/tests            # all tests
+./build/tests carve      # only tests with "carve" in the name
 ```
 
 Tests for a method are skipped until that method's file is added, then run
@@ -42,65 +57,91 @@ sure they find the cheapest seam. The tests also run on GitHub on every push.
 ## Benchmark
 
 ```bash
-python scripts/benchmark_energy.py
+./build/benchmark_energy                      # synthetic images, 4 sizes
+./build/benchmark_energy images/broadway.jpg  # your own image
 ```
 
-Compares full vs incremental energy updates.
+Compares the full energy recompute with the incremental update.
 
 ## Project layout
 
 ```
-main.py                       command-line tool
-seamcarve/
-  energy.py                   energy map (Sobel / gradient), incremental update   P1
-  seam.py                     seam validation, removal, drawing                   P1
-  carve.py                    main loop, horizontal seams, seam tracking          P1
+CMakeLists.txt                build setup
+include/seamcarve/
+  energy.hpp                  energy map (Sobel / gradient), incremental update   Katie
+  seam.hpp                    seam validation, removal, drawing                   Katie
+  carve.hpp                   main loop, horizontal seams, seam tracking          Katie
+  methods.hpp                 seam finder interface + registry                    Katie
+  cli.hpp, seamcarve.hpp      command-line tool, all-in-one header                Katie
+src/
+  energy.cpp, seam.cpp, carve.cpp, cli.cpp, main.cpp                              Katie
   methods/
-    baseline.py               straight-column finder, for testing only            P1
-    dp.py        (to add)     Dynamic Programming                                 P2
-    greedy.py    (to add)     Greedy                                              P3
-    graphcut.py  (to add)     Graph Cut (min-cut/max-flow)                        P4
-tests/test_core.py            tests
-scripts/benchmark_energy.py   energy update benchmark                             P1
-images/                       test input images
+    registry.cpp              method registry                                     Katie
+    baseline.cpp              straight-column finder, for testing only            Katie
+    dp.cpp        (to add)    Dynamic Programming                                 Ananth
+    greedy.cpp    (to add)    Greedy                                              Joel
+    graphcut.cpp  (to add)    Graph Cut (min-cut/max-flow)                        Shri
+tests/
+  testing.hpp                 tiny test framework (no downloads needed)
+  test_core.cpp               tests
+bench/benchmark_energy.cpp    energy update benchmark                             Katie
+images/                       test photos (_small = 120 px wide, for Graph Cut)
 results/                      output (not committed)
-.github/workflows/tests.yml   CI: runs tests on every push
+.github/workflows/tests.yml   CI: builds and runs tests on every push
 ```
 
 ## The shared interface (everyone must follow this)
 
-Every seam finder is one function named `find_seam` in its own file under
-`seamcarve/methods/`, named `dp.py`, `greedy.py` or `graphcut.py`. Once the file
-exists it is picked up automatically by `main.py` and the tests. Nothing else needs changing.
+Each method is one file in `src/methods/`, named `dp.cpp`, `greedy.cpp` or
+`graphcut.cpp`:
 
-```python
-def find_seam(energy: np.ndarray) -> np.ndarray:
-    ...
+```cpp
+#include "seamcarve/methods.hpp"
+
+namespace {
+
+std::vector<int> find_seam(const cv::Mat& energy) {
+    // energy: H x W, CV_64F. Read a value with energy.at<double>(row, col).
+    std::vector<int> seam(energy.rows);
+    // ... fill seam[row] = column to remove in that row ...
+    return seam;
+}
+
+}  // namespace
+
+REGISTER_SEAM_FINDER("dp", find_seam);
 ```
 
-- **Input:** `energy`, an H x W float array. It is a copy, so you may modify it.
-- **Output:** an int array (or list) `seam` of length H, where `seam[i]` is the **column** removed in row `i`.
+- **Input:** `energy`, an H x W matrix of doubles (`CV_64F`). Don't modify it.
+- **Output:** a `std::vector<int>` of length H, where `seam[i]` is the **column** removed in row `i`.
 - The seam must be connected: `abs(seam[i] - seam[i-1]) <= 1`.
-- Only handle **vertical** seams. `carve.py` does horizontal seams by transposing the image.
+- Only handle **vertical** seams. `carve()` does horizontal seams by transposing the image.
 - Must work for any size, including 1 x 1, 1 x W and H x 1.
 
-`carve.py` checks every seam with `validate_seam`, so a broken finder fails with a
+Once the file exists, run `cmake -S . -B build` again. The method appears in
+`--method` and its tests switch on. Nothing else needs changing.
+
+`carve()` checks every seam with `validate_seam`, so a broken finder fails with a
 clear error instead of producing a strange image.
 
 ## Useful hooks
 
-- **P5 (evaluation):** `carve()` returns `(image, stats)`. `stats` has
-  `find_time`, `energy_time`, `remove_time`, `total_time`, `total_seam_cost`
-  and a `seam_costs` list (one per seam). Compare methods using `find_time`
-  and `total_seam_cost`.
-- **P6 (visualisation):**
+- **Asri (evaluation):** `carve()` returns a `CarveResult` with `.image` and `.stats`.
+  `stats` has `find_time`, `energy_time`, `remove_time`, `total_time()`,
+  `total_seam_cost` and `seam_costs` (one per seam). Compare methods using
+  `find_time` and `total_seam_cost`.
+- **Adi (visualisation):**
   - `stats.seam_coords` holds every removed seam in **original image coordinates**
-    (an `(n, 2)` array of `(row, col)` each), and `stats.seam_directions` says
-    whether each one was `"vertical"` or `"horizontal"`.
+    (a `std::vector<Pixel>` each, with `.row` and `.col`), and
+    `stats.seam_directions` says whether each one was `Vertical` or `Horizontal`.
     `draw_removed_seams(original, stats.seam_coords, stats.seam_directions)` draws them all.
-  - For step-by-step animation, pass `on_seam=callback` to `carve()`. It is called as
-    `callback(current_image, seam, direction)` before each seam is removed. For
+  - For step-by-step animation, set `CarveOptions::on_seam`. It is called as
+    `on_seam(current_image, seam, direction)` before each seam is removed. For
     horizontal seams `current_image` is transposed. Use `draw_vertical_seam` to paint it.
+
+## Credits
+
+Broadway Tower photo by Newton2, Wikimedia Commons, CC BY-SA. Other photos by the team.
 
 ## Team
 
