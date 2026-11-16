@@ -107,9 +107,9 @@ clear error instead of producing a strange image.
 
 | Person | Part |
 |---|---|
-| P1 | Core framework, energy map, seam removal, CI |
-| P2 | Dynamic Programming |
-| P3 | Greedy + theory questions |
-| P4 | Graph Cut |
-| P5 | Evaluation and comparison |
-| P6 | Visualisation, UI, report and video |
+| Katie | Core framework, energy map, seam removal, CI |
+| Ananth | Dynamic Programming |
+| Joel | Greedy + theory questions |
+| Shri | Graph Cut |
+| Asri | Evaluation and comparison |
+| Adi | Visualisation, UI, report and video |
