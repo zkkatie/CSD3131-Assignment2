@@ -79,7 +79,7 @@ src/
     registry.cpp              method registry                                     Katie
     baseline.cpp              straight-column finder, for testing only            Katie
     dp.cpp        (to add)    Dynamic Programming                                 Ananth
-    greedy.cpp    (to add)    Greedy                                              Joel
+    greedy.cpp                Greedy                                              Joel
     graphcut.cpp  (to add)    Graph Cut (min-cut/max-flow)                        Shri
 tests/
   testing.hpp                 tiny test framework (no downloads needed)
