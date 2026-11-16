@@ -45,7 +45,7 @@ sure they find the cheapest seam. The tests also run on GitHub on every push.
 python scripts/benchmark_energy.py
 ```
 
-Compares full vs incremental energy updates (see `docs/P1_framework.md`).
+Compares full vs incremental energy updates.
 
 ## Project layout
 
@@ -62,7 +62,6 @@ seamcarve/
     graphcut.py  (to add)     Graph Cut (min-cut/max-flow)                        P4
 tests/test_core.py            tests
 scripts/benchmark_energy.py   energy update benchmark                             P1
-docs/P1_framework.md          design, complexity, testing (report section)        P1
 images/                       test input images
 results/                      output (not committed)
 .github/workflows/tests.yml   CI: runs tests on every push
