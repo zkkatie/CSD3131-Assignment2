@@ -1,4 +1,4 @@
-// Greedy seam finder (Assignment item 3).                                    Joel
+// Greedy seam finder
 //
 // Idea: build the seam one row at a time, always taking the cheapest pixel that
 // is allowed next, and never look further ahead.
