@@ -45,3 +45,7 @@ add_test(NAME tests COMMAND tests)
 # Benchmark: full vs incremental energy update
 add_executable(benchmark_energy bench/benchmark_energy.cpp)
 target_link_libraries(benchmark_energy PRIVATE seamcarve_core)
+
+# Evaluation: compares every seam finder (quality, optimality, scaling, time breakdown)
+add_executable(evaluate bench/evaluate.cpp)
+target_link_libraries(evaluate PRIVATE seamcarve_core)
