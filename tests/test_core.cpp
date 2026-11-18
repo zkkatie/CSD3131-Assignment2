@@ -445,6 +445,64 @@ TEST(greedy_can_be_worse_than_optimal) {
     const SeamFinder finder = finder_or_skip("greedy");
     cv::Mat energy = energy_from_rows({{0, 9, 9, 1}, {9, 9, 9, 1}, {100, 100, 9, 1}});
     CHECK(seam_cost(energy, finder(energy)) > brute_force_min_cost(energy));
+    CHECK((finder(energy) == std::vector<int>{0, 0, 0}));  // 0 + 9 + 100
+    CHECK_NEAR(seam_cost(energy, finder(energy)), 109.0, 1e-9);
+    CHECK_NEAR(brute_force_min_cost(energy), 3.0, 1e-9);   // the right-hand column: 1 + 1 + 1
+}
+
+TEST(greedy_tie_breaking) {
+    // Row 0: the leftmost of equal minima. Later rows: straight down, then left, then right.
+    const SeamFinder finder = finder_or_skip("greedy");
+    cv::Mat energy = energy_from_rows({{5, 1, 5, 1, 5},    // two 1s: take column 1
+                                       {2, 2, 2, 9, 9},    // 2, 2, 2 below: stay in column 1
+                                       {3, 9, 3, 9, 9},    // left and right both 3: go left
+                                       {9, 4, 9, 9, 9}});  // at the left edge: only right is cheaper
+    CHECK((finder(energy) == std::vector<int>{1, 1, 0, 1}));
+    // A flat map: start at the left and go straight down.
+    CHECK((finder(cv::Mat::ones(4, 5, CV_64F)) == std::vector<int>{0, 0, 0, 0}));
+}
+
+TEST(graphcut_flat_and_zero_energy_maps) {
+    // Every seam costs the same, and with zero energy every capacity is zero.
+    const SeamFinder finder = finder_or_skip("graphcut");
+    const cv::Mat flat = cv::Mat::ones(5, 6, CV_64F), zero = cv::Mat::zeros(4, 5, CV_64F);
+    validate_seam(finder(flat), 5, 6);
+    CHECK_NEAR(seam_cost(flat, finder(flat)), 5.0, 1e-9);
+    validate_seam(finder(zero), 4, 5);
+    CHECK_NEAR(seam_cost(zero, finder(zero)), 0.0, 1e-9);
+}
+
+TEST(graphcut_finds_seams_in_the_first_and_last_column) {
+    // The last column is cut at the pixel -> sink edges (capacity = its energy), the case
+    // where our graph differs from the brief. The first column is cut at its "right" edges.
+    const SeamFinder finder = finder_or_skip("graphcut");
+    cv::Mat last = energy_from_rows({{9, 9, 9, 1}, {9, 9, 9, 1}, {9, 9, 9, 1}, {9, 9, 9, 1}});
+    CHECK((finder(last) == std::vector<int>{3, 3, 3, 3}));
+    cv::Mat first = energy_from_rows({{1, 9, 9, 9}, {1, 9, 9, 9}, {1, 9, 9, 9}});
+    CHECK((finder(first) == std::vector<int>{0, 0, 0}));
+}
+
+TEST(dp_and_graphcut_return_the_same_seam_when_it_is_unique) {
+    // With random real-valued energies the cheapest seam is unique, so the two optimal
+    // methods must return the same pixels, not only the same cost.
+    const SeamFinder dp = finder_or_skip("dp"), graphcut = finder_or_skip("graphcut");
+    for (int trial = 0; trial < 10; ++trial) {
+        cv::Mat energy(8, 9, CV_64F);
+        cv::RNG(100 + trial).fill(energy, cv::RNG::UNIFORM, 0.0, 1.0);
+        CHECK(dp(energy) == graphcut(energy));
+    }
+}
+
+TEST_EACH_METHOD(carve_runs_with_every_method) {
+    // The whole loop with each finder: vertical seams, then horizontal ones on the
+    // transposed image. carve() validates every seam the finder returns.
+    const SeamFinder finder = finder_or_skip(method);
+    CarveResult res = carve(random_image(14, 16, 3), 12, 11, finder);
+    CHECK(res.image.rows == 11 && res.image.cols == 12);
+    CHECK(res.stats.seams_removed == 4 + 3);
+    std::vector<Direction> expected(4, Direction::Vertical);
+    expected.insert(expected.end(), 3, Direction::Horizontal);
+    CHECK(res.stats.seam_directions == expected);
 }
 
 // ---------------------------------------------------------------- command line
