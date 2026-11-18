@@ -4,9 +4,13 @@ This section compares the seam finders (Dynamic Programming, Greedy, Graph Cut, 
 the straight-column baseline) on **seam quality** and **speed**, and checks whether
 the measured running times match the complexity analysis of each method.
 
-> **Status:** results below are from the full run on 18 Nov 2026 with Baseline,
-> Greedy and Graph Cut. DP is not merged yet; its rows are marked *TBD* and are
-> filled in by re-running `./build/evaluate` once `src/methods/dp.cpp` exists.
+> **Status:** Baseline, Greedy and Graph Cut results are from the full run on
+> 18 Nov 2026 (machine listed in Section 3). DP results are from a second full run of
+> `./build/evaluate` with `src/methods/dp.cpp` included, on a different machine (also
+> listed in Section 3). The quality and optimality numbers (E1, E2) do not depend on
+> the machine: Baseline and Greedy reproduced exactly in the second run. For the
+> timing results (E3, E4) the second run's Baseline figures are given next to DP's,
+> so the methods can be compared on the same hardware.
 
 ## 1. Design
 
@@ -89,6 +93,10 @@ energy has smooth low-energy regions (sky, walls) where local and global choices
 15 GB RAM, WSL2 Ubuntu 20.04 (kernel 6.6), g++ 13.1, OpenCV 4.2, Release build.
 Full run: 421 s. Raw output: `results/eval_*.csv` and `results/eval_full_log.txt`.
 
+**DP run:** AMD Ryzen 9 8945HS (16 hardware threads, all code single-threaded),
+15 GB RAM, WSL2 Ubuntu 24.04 (kernel 6.18), g++ 13.3, OpenCV 4.6, Release build.
+Full run with all four methods: 442 s.
+
 ### 3.1 E1: Quality on real photos
 
 Gap % = extra seam cost over the cheapest seam available at each step (0 = optimal).
@@ -96,18 +104,22 @@ Full-size photos: 200 seams removed; `_small` photos (120 px wide): 30 seams.
 
 | Image | Graph Cut | Greedy | Baseline | DP |
 |---|---|---|---|---|
-| broadway | too slow | 350.8 | 107.3 | TBD |
-| building | too slow | 665.6 | 156.9 | TBD |
-| sunset | too slow | 96.2 | 105.1 | TBD |
-| windmill | too slow | 103.3 | 137.2 | TBD |
-| broadway_small | **0.0** | 153.9 | 45.3 | TBD |
-| building_small | **0.0** | 121.3 | 97.1 | TBD |
-| sunset_small | **0.0** | 24.1 | 32.6 | TBD |
-| windmill_small | **0.0** | 38.7 | 58.6 | TBD |
+| broadway | too slow | 350.8 | 107.3 | **0.0** |
+| building | too slow | 665.6 | 156.9 | **0.0** |
+| sunset | too slow | 96.2 | 105.1 | **0.0** |
+| windmill | too slow | 103.3 | 137.2 | **0.0** |
+| broadway_small | **0.0** | 153.9 | 45.3 | **0.0** |
+| building_small | **0.0** | 121.3 | 97.1 | **0.0** |
+| sunset_small | **0.0** | 24.1 | 32.6 | **0.0** |
+| windmill_small | **0.0** | 38.7 | 58.6 | **0.0** |
 
-(Sobel energy. The gradient energy gives the same picture: Graph Cut 0.0 everywhere,
-Greedy 22–676%, Baseline 42–159%.)
+(Sobel energy. The gradient energy gives the same picture: DP and Graph Cut 0.0
+everywhere, Greedy 22–676%, Baseline 42–159%.)
 
+- DP chose a cheapest seam at **every one** of its 1,840 steps (all 8 photos, both
+  energies), including the full-size photos where Graph Cut is too slow to run.
+- On the `_small` photos DP and Graph Cut removed seams with **identical** total cost
+  for both energies, even though they compute the seam in completely different ways.
 - Graph Cut chose a cheapest seam at **every one** of its 240 steps (both energies).
 - Greedy and Baseline chose a cheapest seam at **0%** of steps on every photo.
 - Greedy is worst on **building** (666%) and **broadway** (351%): images with strong
@@ -123,13 +135,17 @@ seam was optimal, and total extra cost over all maps:
 
 | Map size | Greedy uniform | Greedy photo | Baseline uniform | Baseline photo | Graph Cut | DP |
 |---|---|---|---|---|---|---|
-| 5x5 | 51.8% (+15%) | 62.2% (+10%) | 1.6% (+60%) | 33.8% (+13%) | 100% (+0%) | TBD |
-| 10x10 | 14.6% (+29%) | 20.2% (+19%) | 0.0% (+88%) | 13.2% (+26%) | 100% (+0%) | TBD |
-| 25x25 | 1.2% (+39%) | 3.4% (+41%) | 0.0% (+119%) | 5.0% (+36%) | 100% (+0%) | TBD |
-| 50x50 | 0.0% (+43%) | 0.6% (+48%) | 0.0% (+137%) | 1.8% (+44%) | 100% (+0%) | TBD |
-| 100x100 | 0.0% (+42%) | 0.0% (+75%) | 0.0% (+146%) | 0.8% (+72%) | 100% (+0%) | TBD |
-| 200x200 | 0.0% (+42%) | 0.0% (+112%) | 0.0% (+153%) | 0.0% (+83%) | — | TBD |
+| 5x5 | 51.8% (+15%) | 62.2% (+10%) | 1.6% (+60%) | 33.8% (+13%) | 100% (+0%) | 100% (+0%) |
+| 10x10 | 14.6% (+29%) | 20.2% (+19%) | 0.0% (+88%) | 13.2% (+26%) | 100% (+0%) | 100% (+0%) |
+| 25x25 | 1.2% (+39%) | 3.4% (+41%) | 0.0% (+119%) | 5.0% (+36%) | 100% (+0%) | 100% (+0%) |
+| 50x50 | 0.0% (+43%) | 0.6% (+48%) | 0.0% (+137%) | 1.8% (+44%) | 100% (+0%) | 100% (+0%) |
+| 100x100 | 0.0% (+42%) | 0.0% (+75%) | 0.0% (+146%) | 0.8% (+72%) | 100% (+0%) | 100% (+0%) |
+| 200x200 | 0.0% (+42%) | 0.0% (+112%) | 0.0% (+153%) | 0.0% (+83%) | — | 100% (+0%) |
 
+(DP column: uniform and photo maps combined; DP was optimal on all 500 maps of each
+kind at every size, 6,000 maps in total.)
+
+- DP was optimal on all 6,000 maps, including the 200x200 maps Graph Cut skips.
 - Graph Cut was optimal on all 1,000 maps it was given.
 - Greedy's chance of being optimal collapses as the map gets taller: from 52% at
   5x5 to 0% from 50x50 up. Every extra row is another chance to commit to a wrong turn.
@@ -150,8 +166,17 @@ Slope of the log-log fit of time per seam against pixels (time ~ pixels^slope):
 | Greedy | **0.55** | **0.15** | **0.94** | 0.0036 | 0.040 |
 | Baseline | 0.94 | 1.05 | 0.93 | 0.029 | 1.61 |
 | Graph Cut | 1.61 | 2.53 | 2.14 | 1,932 | (400x400: 10,696) |
-| DP | TBD | TBD | TBD | TBD | TBD |
+| DP | **1.02** | **0.98** | **1.01** | 0.023 | 2.70 |
 
+(DP row from the DP run. Baseline in the same run: 0.020 ms at 200x200 and 1.66 ms at
+1600x1600, close to the figures above, so the two machines are comparable.)
+
+- **DP matches O(HW)** almost exactly: slope 1.02 on square images, and about 1 when
+  only the width or only the height grows. Per seam it costs about 1.2–1.6x Baseline,
+  which has the same O(HW) order: DP does a three-way minimum and a table write per
+  pixel and then backtracks, where Baseline only adds. At 200x200 DP takes 0.023 ms
+  per seam against about 1,800 ms for Graph Cut in the same run, roughly 80,000x faster
+  for the same (optimal) answer.
 - **Greedy matches O(H + W)** exactly: on square images pixels = n^2 and H + W = 2n,
   so the slope should be 0.5 (measured 0.55). With H fixed, growing W only affects the
   O(W) scan of row 0, so time barely grows (0.15). With W fixed, time is linear in H (0.94).
@@ -170,7 +195,14 @@ Share of total carving time spent finding seams (rest = energy update + seam rem
 | Greedy | 1.8–2.2% | 7.6–9.4% |
 | Baseline | 21–23% | 25–29% |
 | Graph Cut | — | **100.0%** (9.3–13.5 s per photo) |
-| DP | TBD | TBD |
+| DP | 23–25% | 28–30% |
+
+(DP row from the DP run; Baseline in the same run: 19–20% and 23–25%.)
+
+For DP, seam finding is about a quarter of the total time: about 0.3 ms per seam on
+the full-size photos, against about 0.6 ms for seam removal and 0.3 ms for the energy
+update. Removal is still the largest cost, so a faster DP would shorten the whole
+resize only a little (at most about 1.3x, by Amdahl's law).
 
 For Greedy and Baseline, seam **removal** is the largest cost (about 55–65% on the
 full photos, the O(HW) memory copy from P1), then the incremental energy update
@@ -179,31 +211,34 @@ full photos, the O(HW) memory copy from P1), then the incremental energy update
 ## 4. Discussion
 
 **Theory vs measurement.** All measured slopes agree with the complexity analysis:
-Greedy O(H + W), Baseline O(HW), Graph Cut super-linear. Small deviations (e.g. 0.55
-instead of 0.5) come from fixed per-call overheads that matter at small sizes.
+Greedy O(H + W), Baseline and DP O(HW), Graph Cut super-linear. Small deviations (e.g.
+0.55 instead of 0.5) come from fixed per-call overheads that matter at small sizes.
 
-**Quality.** Optimality is what separates the methods. Graph Cut was optimal on every
-seam it was tested on, Greedy on almost none beyond tiny maps, and its error is
+**Quality.** Optimality is what separates the methods. DP and Graph Cut were optimal on
+every seam they were tested on, Greedy on almost none beyond tiny maps, and its error is
 largest exactly on the images where it matters visually: strong vertical structure
 (building, broadway). Greedy is fast, but saving a fraction of a millisecond per seam
 is not worth seams that cost up to 6–7x the optimum, because seam finding is only
 ~2% of the total time anyway (E4).
 
-**Graph Cut.** It gives the same (optimal) answer as DP but costs seconds per seam
-instead of milliseconds, so it is impractical for this problem. It is still worth
+**Graph Cut.** It gives the same (optimal) answer as DP, with identical total costs on
+every `_small` photo, but costs seconds per seam instead of a fraction of a
+millisecond, so it is impractical for this problem. It is still worth
 having: the min-cut formulation generalises to energies and constraints DP cannot
 handle (e.g. 2D regions, video), and here it serves as an independent check of optimality.
 
-**Recommendation:** *(to confirm once DP is measured)* DP, which should be optimal
-like Graph Cut at a cost close to Baseline's O(HW). Greedy only where speed matters
-far more than quality; Graph Cut only on small images or as a correctness reference.
+**Recommendation:** DP. It was optimal on every seam, like Graph Cut, and runs in
+O(HW) at about 1.2–1.6x Baseline's cost per seam, which is roughly a quarter of the
+total resize time (E4). Greedy only where speed matters far more than quality; Graph
+Cut only on small images or as a correctness reference.
 
 ## 5. Validation
 
 The evaluation checks itself while it runs:
 
 - every seam is validated (`validate_seam`) before its cost is used;
-- DP and Graph Cut must be optimal on every E2 map, otherwise a warning is printed;
+- DP and Graph Cut must be optimal on every E2 map, otherwise a warning is printed
+  (no warning was printed in either run);
 - no gap % was negative in any run, i.e. no method ever beat the ground truth, which
   would mean the ground truth itself was wrong;
 - the project tests (`./build/tests`) already check DP and Graph Cut against brute
@@ -219,4 +254,6 @@ The evaluation checks itself while it runs:
 - Only vertical seams are measured in E1/E4. Horizontal seams use the same finder on
   the transposed image (P1), so the results carry over.
 - Timings depend on the machine; the slopes and the ratios between methods are
-  more meaningful than the absolute seconds.
+  more meaningful than the absolute seconds. DP's timings come from a different
+  machine than the other methods' (Section 3); its Baseline figures from the same
+  run are quoted alongside so the comparison stays like for like.

@@ -63,6 +63,14 @@ sure they find the cheapest seam. The tests also run on GitHub on every push.
 
 Compares the full energy recompute with the incremental update.
 
+```bash
+./build/benchmark_dp                          # DP variants: time, memory, threads (5 sizes)
+./build/benchmark_dp images/broadway.jpg      # also the time split of a real resize
+```
+
+Compares the DP variants (full table, top-down, two rows, linear space) and the
+multithreaded DP.
+
 ## Evaluation (comparing the methods)
 
 ```bash
@@ -86,19 +94,23 @@ include/seamcarve/
   carve.hpp                   main loop, horizontal seams, seam tracking          Katie
   methods.hpp                 seam finder interface + registry                    Katie
   cli.hpp, seamcarve.hpp      command-line tool, all-in-one header                Katie
+  dp.hpp                      DP variants (used by tests and benchmark)           Ananth
 src/
   energy.cpp, seam.cpp, carve.cpp, cli.cpp, main.cpp                              Katie
   methods/
     registry.cpp              method registry                                     Katie
     baseline.cpp              straight-column finder, for testing only            Katie
-    dp.cpp        (to add)    Dynamic Programming                                 Ananth
+    dp.cpp                    Dynamic Programming (+ low-memory / threaded)       Ananth
     greedy.cpp                Greedy                                              Joel
     graphcut.cpp  (to add)    Graph Cut (min-cut/max-flow)                        Shri
 tests/
   testing.hpp                 tiny test framework (no downloads needed)
-  test_core.cpp               tests
+  test_core.cpp               tests (every tests/test_*.cpp is built into ./build/tests)
+  test_dp.cpp                 DP tests                                            Ananth
 bench/benchmark_energy.cpp    energy update benchmark                             Katie
 bench/evaluate.cpp            method comparison (quality, speed, scaling)         Asri
+bench/benchmark_dp.cpp        DP variants: time, memory, threads                  Ananth
+docs/Assignment 2 Report.docx DP report section                                   Ananth
 images/                       test photos (_small = 120 px wide, for Graph Cut)
 results/                      output (not committed)
 .github/workflows/tests.yml   CI: builds and runs tests on every push

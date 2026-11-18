@@ -9,6 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs)
+find_package(Threads REQUIRED)  # std::thread, used by the multithreaded DP variant
 
 # Every seam finder in src/methods/ is picked up automatically, including ones
 # teammates add later (CONFIGURE_DEPENDS re-checks the folder on each build).
@@ -24,7 +25,7 @@ add_library(seamcarve_core OBJECT
   ${METHOD_SOURCES}
 )
 target_include_directories(seamcarve_core PUBLIC include ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(seamcarve_core PUBLIC ${OpenCV_LIBS})
+target_link_libraries(seamcarve_core PUBLIC ${OpenCV_LIBS} Threads::Threads)
 
 if(MSVC)
   target_compile_options(seamcarve_core PUBLIC /W4)
@@ -37,7 +38,9 @@ add_executable(seamcarve src/main.cpp)
 target_link_libraries(seamcarve PRIVATE seamcarve_core)
 
 # Tests:  ctest --test-dir build --output-on-failure   (or ./build/tests)
-add_executable(tests tests/test_core.cpp)
+# Every tests/test_*.cpp is compiled into the single test program (test_core.cpp provides main()).
+file(GLOB TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/test_*.cpp)
+add_executable(tests ${TEST_SOURCES})
 target_link_libraries(tests PRIVATE seamcarve_core)
 enable_testing()
 add_test(NAME tests COMMAND tests)
@@ -45,6 +48,10 @@ add_test(NAME tests COMMAND tests)
 # Benchmark: full vs incremental energy update
 add_executable(benchmark_energy bench/benchmark_energy.cpp)
 target_link_libraries(benchmark_energy PRIVATE seamcarve_core)
+
+# Benchmark: DP variants (time vs memory) and multithreading
+add_executable(benchmark_dp bench/benchmark_dp.cpp)
+target_link_libraries(benchmark_dp PRIVATE seamcarve_core)
 
 # Evaluation: compares every seam finder (quality, optimality, scaling, time breakdown)
 add_executable(evaluate bench/evaluate.cpp)
