@@ -463,7 +463,7 @@ TEST(greedy_tie_breaking) {
 }
 
 TEST(graphcut_flat_and_zero_energy_maps) {
-    // Every seam costs the same, and with zero energy every capacity is zero.
+    // Every seam costs the same; on the zero map every energy capacity is zero.
     const SeamFinder finder = finder_or_skip("graphcut");
     const cv::Mat flat = cv::Mat::ones(5, 6, CV_64F), zero = cv::Mat::zeros(4, 5, CV_64F);
     validate_seam(finder(flat), 5, 6);
@@ -483,13 +483,18 @@ TEST(graphcut_finds_seams_in_the_first_and_last_column) {
 }
 
 TEST(dp_and_graphcut_return_the_same_seam_when_it_is_unique) {
-    // With random real-valued energies the cheapest seam is unique, so the two optimal
-    // methods must return the same pixels, not only the same cost.
+    // A seam is planted in a map of 10s: its pixels cost 1 (even trials) or 0 (odd trials).
+    // Any other seam leaves it in at least one row and costs at least 9 more, so it is the
+    // only cheapest seam, and both optimal methods must return exactly its pixels.
     const SeamFinder dp = finder_or_skip("dp"), graphcut = finder_or_skip("graphcut");
+    std::mt19937 rng(21);
     for (int trial = 0; trial < 10; ++trial) {
-        cv::Mat energy(8, 9, CV_64F);
-        cv::RNG(100 + trial).fill(energy, cv::RNG::UNIFORM, 0.0, 1.0);
-        CHECK(dp(energy) == graphcut(energy));
+        const int h = 8, w = 9;
+        const std::vector<int> planted = random_seam(h, w, rng);
+        cv::Mat energy(h, w, CV_64F, cv::Scalar(10.0));
+        for (int r = 0; r < h; ++r) energy.at<double>(r, planted[r]) = trial % 2 == 0 ? 1.0 : 0.0;
+        CHECK(dp(energy) == planted);
+        CHECK(graphcut(energy) == planted);
     }
 }
 
@@ -497,12 +502,22 @@ TEST_EACH_METHOD(carve_runs_with_every_method) {
     // The whole loop with each finder: vertical seams, then horizontal ones on the
     // transposed image. carve() validates every seam the finder returns.
     const SeamFinder finder = finder_or_skip(method);
-    CarveResult res = carve(random_image(14, 16, 3), 12, 11, finder);
+    std::vector<cv::Size> seen;  // size of the energy map at every call of the finder
+    const SeamFinder counted = [&](const cv::Mat& energy) {
+        seen.push_back(energy.size());
+        return finder(energy);
+    };
+    CarveResult res = carve(random_image(14, 16, 3), 12, 11, counted);
     CHECK(res.image.rows == 11 && res.image.cols == 12);
     CHECK(res.stats.seams_removed == 4 + 3);
     std::vector<Direction> expected(4, Direction::Vertical);
     expected.insert(expected.end(), 3, Direction::Horizontal);
     CHECK(res.stats.seam_directions == expected);
+    // The finder was called once per seam: 4 times on a 14-row map that loses a column each
+    // time, then 3 times on the transposed map (12 rows, one column fewer each time).
+    CHECK(seen.size() == 7);
+    for (int k = 0; k < 4; ++k) CHECK(seen[k] == cv::Size(16 - k, 14));
+    for (int k = 0; k < 3; ++k) CHECK(seen[4 + k] == cv::Size(14 - k, 12));
 }
 
 // ---------------------------------------------------------------- command line
