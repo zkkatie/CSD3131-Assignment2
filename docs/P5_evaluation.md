@@ -4,7 +4,7 @@ This section compares the seam finders (Dynamic Programming, Greedy, Graph Cut, 
 the straight-column baseline) on **seam quality** and **speed**, and checks whether
 the measured running times match the complexity analysis of each method.
 
-> **Status:** All results are from one full run of `./build/evaluate` with all four
+> **Status:** All results in this section are from one full run of `./build/evaluate` with all four
 > methods on 18 Nov 2026, on the single machine listed in Section 3. The quality and
 > optimality numbers (E1, E2) do not depend on the machine: they came out identical on
 > the two machines used earlier in development. The timing results (E3, E4) do depend
@@ -40,8 +40,9 @@ so it does not affect the timings. From it we report:
 | gap % | (sum of chosen seam costs / sum of per-step optimal costs - 1) x 100. 0 = always optimal |
 | seams optimal % | share of steps where the chosen seam was a cheapest one |
 
-The ground truth is independent of the DP and Graph Cut code, so it also checks
-that those two methods really are optimal.
+The ground truth is a separate implementation inside the evaluation program, so it also
+checks the DP and Graph Cut code. It uses the same recurrence as DP; the recurrence itself
+is checked against brute force in the tests, and by Graph Cut, which uses no DP.
 
 ### 1.3 The four experiments
 
@@ -168,11 +169,9 @@ fit uses the mean image size over the timed seams.
 - **DP is consistent with O(HW)**: slope 0.97 on square images, and 0.85–0.88 when
   only the width or only the height grows. Those two series start at very small
   sizes, where costs that do not depend on the width still show: over the four
-  largest widths the time grows 8.3x for 8.3x the pixels. Per seam it takes between 0.27x and 0.96x
-  Baseline's time depending on the size (0.89x at both 200x200 and 1600x1600).
-  Both are O(HW): DP does a three-way minimum and a table write per pixel and then
-  backtracks, where Baseline only adds. At 200x200 DP takes 0.018 ms per seam against
-  466 ms for Graph Cut, roughly 26,000x faster for the same (optimal) answer.
+  largest widths the time grows 8.3x for 8.3x the pixels. At 200x200 DP takes 0.018 ms
+  per seam against 466 ms for Graph Cut, roughly 26,000x faster for the same (optimal)
+  answer.
 - **Greedy is consistent with O(H + W)**: on square images pixels = n^2 and H + W = 2n,
   so the slope should be 0.5 (measured 0.53). With H fixed, growing W only affects the
   O(W) scan of row 0, so time barely grows (0.07). With W fixed, time is linear in H (0.91).
@@ -252,9 +251,8 @@ The evaluation checks itself while it runs:
 ## 6. Limitations
 
 - Graph Cut is only evaluated on small images, so its quality numbers cover fewer
-  pixels than the other methods. Its time is extrapolated from the fitted slope, and
-  its scaling points are single runs of two seams, so that slope is the least certain:
-  a repeat of the scaling experiment also gave 1.6–1.8.
+  pixels than the other methods. Its scaling points are single runs of two seams, so
+  its slope is the least certain: a repeat of the scaling experiment also gave 1.6–1.8.
 - The gap % measures cost (energy), not perceived quality. The output images in
   `results/eval_images/` are used for the visual side.
 - Only vertical seams are measured in E1/E4. Horizontal seams use the same finder on
