@@ -43,6 +43,35 @@ Rebuild with the second line after any change. If you add a new file in
 | `--save-seams` | also save the input with every removed seam drawn (red = vertical, blue = horizontal) |
 | `--out` | output path (default `results/<name>_<method>.png`) |
 
+## Viewer (bonus: step-by-step view and interactive resizing)
+
+```bash
+./build/seamcarve_viewer images/broadway.jpg
+./build/seamcarve_viewer images/broadway.jpg --method greedy --width 600 --height 450
+./build/seamcarve_viewer images/broadway_small.jpg --method graphcut
+```
+
+Opens a window with two panels. Left: the original with every removed seam painted
+(red = vertical, blue = horizontal). Right: the carved image.
+
+| Control | What it does |
+|---|---|
+| Width / Height sliders | carve the image to that size (down to half the original) |
+| Space | replay the carve one seam at a time; the seam about to go is yellow. Space again stops |
+| `P`, then `N` | during a replay: pause, then show one more seam per `N`. `P` again resumes |
+| `+` / `-` | replay faster / slower |
+| `S` | save the carved image and the seam picture to `results/` |
+| `Q` or Esc | quit |
+
+`--method` takes the same names as `seamcarve` (default `dp`). `graphcut` only runs on
+the `_small` images, where a slider move can take several seconds. `--width` and
+`--height` set the size the sliders start at. Click on the picture before using the keys.
+
+The viewer needs a desktop to open its window, and an OpenCV whose windows use Qt:
+Ubuntu 24.04 or newer, including WSL (tested on Ubuntu 26.04 under WSL). On an OpenCV
+built with the GTK window backend, such as Ubuntu 22.04's, the viewer closes straight
+away. It is not built at all if OpenCV's highgui module is missing.
+
 ## Test
 
 ```bash
@@ -97,6 +126,7 @@ include/seamcarve/
   dp.hpp                      DP variants (used by tests and benchmark)           Ananth
 src/
   energy.cpp, seam.cpp, carve.cpp, cli.cpp, main.cpp                              Katie
+  viewer.cpp                  interactive viewer (step-by-step view, sliders)     Adi
   methods/
     registry.cpp              method registry                                     Katie
     baseline.cpp              straight-column finder, for testing only            Katie
