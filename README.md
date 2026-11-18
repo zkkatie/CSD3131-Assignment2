@@ -34,7 +34,7 @@ Rebuild with the second line after any change. If you add a new file in
 
 | Option | Meaning |
 |---|---|
-| `--method` | `dp`, `greedy`, `graphcut` (once added), or `baseline` (straight columns, for testing). Default: `dp` if added, else `baseline` |
+| `--method` | `dp` (default), `greedy`, `graphcut`, or `baseline` (straight columns, for testing). `graphcut` is very slow: use it on the `_small` images only |
 | `--width`, `--height` | target size in pixels (shrink only) |
 | `--scale` | shrink both sides by a factor in (0, 1], e.g. `0.8` |
 | `--energy` | `sobel` (default) or `gradient` (simple central difference) |
@@ -50,8 +50,8 @@ Rebuild with the second line after any change. If you add a new file in
 ./build/tests carve      # only tests with "carve" in the name
 ```
 
-Tests for a method are skipped until that method's file is added, then run
-automatically. DP and Graph Cut are checked against a brute-force search to make
+Every method in `src/methods/` is tested automatically. DP and Graph Cut are
+checked against a brute-force search to make
 sure they find the cheapest seam. The tests also run on GitHub on every push.
 
 ## Benchmark
@@ -102,7 +102,7 @@ src/
     baseline.cpp              straight-column finder, for testing only            Katie
     dp.cpp                    Dynamic Programming (+ low-memory / threaded)       Ananth
     greedy.cpp                Greedy                                              Joel
-    graphcut.cpp  (to add)    Graph Cut (min-cut/max-flow)                        Shri
+    graphcut.cpp              Graph Cut (min-cut/max-flow)                        Shri
 tests/
   testing.hpp                 tiny test framework (no downloads needed)
   test_core.cpp               tests (every tests/test_*.cpp is built into ./build/tests)
@@ -110,7 +110,7 @@ tests/
 bench/benchmark_energy.cpp    energy update benchmark                             Katie
 bench/evaluate.cpp            method comparison (quality, speed, scaling)         Asri
 bench/benchmark_dp.cpp        DP variants: time, memory, threads                  Ananth
-docs/Assignment 2 Report.docx DP report section                                   Ananth
+docs/Assignment 2 Report.docx the team report                                     all
 images/                       test photos (_small = 120 px wide, for Graph Cut)
 results/                      output (not committed)
 .github/workflows/tests.yml   CI: builds and runs tests on every push

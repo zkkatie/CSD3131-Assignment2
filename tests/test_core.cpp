@@ -124,7 +124,7 @@ TEST(sobel_matches_opencv_reflect_border) {
 TEST(energy_at_matches_full_map) {
     const int sizes[][2] = {{1, 1}, {1, 6}, {6, 1}, {2, 2}, {9, 13}};
     for (EnergyFunction fn : ENERGY_FUNCTIONS)
-        for (auto [h, w] : sizes) {
+        for (const auto& [h, w] : sizes) {
             cv::Mat g = to_gray(random_image(h, w, h * 31 + w)), e = energy_from_gray(g, fn);
             for (int r = 0; r < h; ++r)
                 for (int c = 0; c < w; ++c) CHECK_NEAR(energy_at(g, r, c, fn), e.at<double>(r, c), 1e-6);
@@ -152,7 +152,7 @@ TEST(incremental_energy_equals_full_recompute) {
     // Remove random seams until 1 column is left; after EVERY removal both ways must agree.
     const int sizes[][2] = {{1, 8}, {2, 2}, {5, 3}, {12, 20}, {30, 7}};
     for (EnergyFunction fn : ENERGY_FUNCTIONS)
-        for (auto [h, w] : sizes) {
+        for (const auto& [h, w] : sizes) {
             std::mt19937 rng(h * 100 + w);
             cv::Mat gray = to_gray(random_image(h, w, h + w));
             cv::Mat energy = energy_from_gray(gray, fn);
@@ -406,7 +406,7 @@ TEST_EACH_METHOD(method_returns_valid_seam) {
     const SeamFinder finder = finder_or_skip(method);
     const int sizes[][2] = {{1, 1}, {1, 5}, {6, 1}, {2, 2}, {20, 25}};
     unsigned seed = 0;
-    for (auto [h, w] : sizes) {
+    for (const auto& [h, w] : sizes) {
         cv::Mat energy = compute_energy(random_image(h, w, seed++));
         validate_seam(finder(energy), h, w);
     }
