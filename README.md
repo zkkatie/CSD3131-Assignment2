@@ -81,6 +81,7 @@ photos (`images/`) and sample results (`samples/`).
 
 ```bash
 sudo apt update && sudo apt install -y libopencv-dev   # the OpenCV libraries the programs load
+unzip seamcarve-ubuntu.zip   # only for the Actions download, which wraps the package in a zip
 mkdir seamcarve && tar -xzf seamcarve-ubuntu.tar.gz -C seamcarve && cd seamcarve
 ./bin/seamcarve images/broadway.jpg --width 600 --method dp --save-seams
 ./bin/seamcarve_viewer images/broadway.jpg   # in the package when OpenCV's highgui was available to the build

@@ -463,13 +463,16 @@ TEST(greedy_tie_breaking) {
 }
 
 TEST(graphcut_flat_and_zero_energy_maps) {
-    // Every seam costs the same; on the zero map every energy capacity is zero.
+    // Every seam costs the same; on the zero map every energy capacity is zero. The cut
+    // found is the smallest source side, so the seam is the leftmost one: column 0.
     const SeamFinder finder = finder_or_skip("graphcut");
     const cv::Mat flat = cv::Mat::ones(5, 6, CV_64F), zero = cv::Mat::zeros(4, 5, CV_64F);
     validate_seam(finder(flat), 5, 6);
     CHECK_NEAR(seam_cost(flat, finder(flat)), 5.0, 1e-9);
+    CHECK((finder(flat) == std::vector<int>(5, 0)));
     validate_seam(finder(zero), 4, 5);
     CHECK_NEAR(seam_cost(zero, finder(zero)), 0.0, 1e-9);
+    CHECK((finder(zero) == std::vector<int>(4, 0)));
 }
 
 TEST(graphcut_finds_seams_in_the_first_and_last_column) {
