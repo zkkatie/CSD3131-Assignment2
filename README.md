@@ -63,6 +63,19 @@ sure they find the cheapest seam. The tests also run on GitHub on every push.
 
 Compares the full energy recompute with the incremental update.
 
+## Evaluation (comparing the methods)
+
+```bash
+./build/evaluate --quick          # small run (~1 min) to check everything works
+./build/evaluate                  # full run: quality, optimality, scaling, breakdown
+./build/evaluate scaling          # only one experiment
+```
+
+Every registered method is compared, so new methods are included automatically.
+Results go to `results/eval_*.csv`, output images to
+`results/eval_images/`. See the comment at the top of `bench/evaluate.cpp` for what
+each experiment measures. Use the default Release build for timings.
+
 ## Project layout
 
 ```
@@ -85,6 +98,7 @@ tests/
   testing.hpp                 tiny test framework (no downloads needed)
   test_core.cpp               tests
 bench/benchmark_energy.cpp    energy update benchmark                             Katie
+bench/evaluate.cpp            method comparison (quality, speed, scaling)         Asri
 images/                       test photos (_small = 120 px wide, for Graph Cut)
 results/                      output (not committed)
 .github/workflows/tests.yml   CI: builds and runs tests on every push
