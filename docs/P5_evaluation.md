@@ -15,8 +15,7 @@ the measured running times match the complexity analysis of each method.
 ### 1.1 What is compared and why it is fair
 
 All methods run inside the same `carve()` loop (P1), on the same images, with the
-same energy function and the same timers. Only the `find_seam` call differs, so any
-difference in cost or time comes from the method itself. `bench/evaluate.cpp` takes
+same energy function and the same timers. Only the `find_seam` call differs, so differences in cost or time come from the method: from the seam it picks at each step, and from the different image those picks leave for the later steps. `bench/evaluate.cpp` takes
 the methods from the registry, so every method is measured by the same code.
 
 ### 1.2 Measuring quality: the per-step optimum
@@ -64,7 +63,7 @@ at most 100 trials per size in E2, and its E3 series stops once one seam takes o
 
 ### 1.5 Timing method
 
-Release build (`-O2`/`-O3`, the CMake default), best of 3 runs (1 for Graph Cut),
+Release build (`-O3`, the CMake default for g++), best of 3 runs (1 for Graph Cut),
 `std::chrono::steady_clock`. The machine is listed in Section 3.
 
 ## 2. Expected results (theory)
@@ -76,7 +75,7 @@ For an H x W energy map, one seam:
 | Baseline | no (straight seams only) | O(HW), summing every column | ~1 |
 | Greedy | no | O(W) for row 0 + O(1) per row = O(H + W) | ~0.5 |
 | DP | yes | O(HW) | ~1 |
-| Graph Cut (Edmonds-Karp) | yes | O(V E^2) worst case, V ~ HW, E ~ 6HW | > 1 |
+| Graph Cut (Edmonds-Karp) | yes | O(V E^2) worst case, V ~ HW, E ~ 6HW | > 1 (the bound is a worst case, not a predicted slope) |
 
 In the width-only series (H fixed), Greedy's O(H + W) still grows linearly in W, but
 with a much smaller constant than DP.
@@ -146,9 +145,7 @@ kind at every size, 6,000 maps in total.)
 - Greedy's chance of being optimal collapses as the map gets taller: from 52% at
   5x5 to 0% from 50x50 up. Every extra row is another chance to commit to a wrong turn.
 - Surprise: on large **photo** crops Greedy is worse than on random maps (+112% vs
-  +42% at 200x200) and even worse than Baseline. Photo energy has long strong edges;
-  once Greedy enters one it follows it, whereas on random maps a bad pixel is
-  followed by an average one.
+  +42% at 200x200) and even worse than Baseline. A likely reason: photo energy has long strong edges, and once Greedy enters one it tends to follow it, whereas on random maps a bad pixel is followed by an average one. We did not measure this directly.
 - The "worst case %" column in the CSV is very large for photo maps (up to 586,700%)
   because some crops (flat sky) have an optimal cost near 0. The total extra cost
   above is the more meaningful number.
@@ -167,9 +164,7 @@ fit uses the mean image size over the timed seams.
 | DP | **0.97** | **0.85** | **0.88** | 0.018 | 2.01 |
 
 - **DP is consistent with O(HW)**: slope 0.97 on square images, and 0.85–0.88 when
-  only the width or only the height grows. Those two series start at very small
-  sizes, where costs that do not depend on the width still show: over the four
-  largest widths the time grows 8.3x for 8.3x the pixels. At 200x200 DP takes 0.018 ms
+  only the width or only the height grows. Those two series start at very small sizes, where fixed per-call costs still show: over the four largest widths the time grows 8.3x for 8.3x the pixels. On square images the time per pixel stays between 0.47 and 0.79 ns at every size from 50x50 to 1600x1600 (1.07 ns at 25x25): within a factor of 2 while the image grows about 1,000 times, which is what O(HW) predicts. Like Baseline, DP grows faster than the pixel count from 400x400 to 1600x1600 (27x the time for 16x the pixels), probably because the table and the energy map no longer fit in the cache. At 200x200 DP takes 0.018 ms
   per seam against 466 ms for Graph Cut, roughly 26,000x faster for the same (optimal)
   answer.
 - **Greedy is consistent with O(H + W)**: on square images pixels = n^2 and H + W = 2n,
@@ -181,9 +176,7 @@ fit uses the mean image size over the timed seams.
   pixels). A likely cause is that such a cheap loop is dominated by fixed costs at
   small sizes and by memory speed at large ones. We therefore do not claim a measured
   confirmation of O(HW) for Baseline; it is a testing aid, not one of the three methods.
-- **Graph Cut is clearly worse than linear** (1.6–1.8). Edmonds-Karp's worst case is
-  O(V E^2); the measured growth is far below that bound, at roughly pixels^1.6 to
-  pixels^1.8. At 200x200 one seam takes 0.47 s, about **300,000x** slower than
+- **Graph Cut is clearly worse than linear** (1.6–1.8). Edmonds-Karp's worst case is O(V E^2); on the synthetic images of this experiment the measured growth is far below that bound, at roughly pixels^1.6 to pixels^1.8. The time also depends on the energy values, not only on the size: on the uniform random maps of E2 one seam took 1.4 ms, 29 ms and 666 ms at 25x25, 50x50 and 100x100 (about pixels^2.2), against 72 ms on the 100x100 image here. Both are still far below the bound. At 200x200 one seam takes 0.47 s, about **300,000x** slower than
   Greedy; a 400x400 seam takes 4.2 s.
 
 ### 3.4 E4: Where the time goes
@@ -214,8 +207,7 @@ take about the same share. For Graph Cut, everything else is negligible.
 
 **Theory vs measurement.** The measured slopes of the three methods agree with the
 complexity analysis: Greedy O(H + W), DP O(HW), Graph Cut super-linear. The largest
-deviation, DP at 0.85 when only the width grows, comes from fixed per-call costs that
-matter at small sizes. Baseline's slope (0.65–0.86) is the exception and is discussed in Section 3.3.
+deviation, DP at 0.85 when only the width grows, is consistent with fixed per-call costs that matter at small sizes. Baseline's slope (0.65–0.86) is the exception and is discussed in Section 3.3.
 
 **Quality.** Optimality is what separates the methods. DP and Graph Cut were optimal on
 every seam they were tested on, Greedy on almost none beyond tiny maps, and its error is
@@ -245,8 +237,7 @@ The evaluation checks itself while it runs:
 - no gap % was negative in this run, i.e. no method ever beat the ground truth, which
   would mean the ground truth itself was wrong;
 - the project tests (`./build/tests`) already check DP and Graph Cut against brute
-  force, and that `full` and `incremental` energy modes give identical costs, so
-  timings in either mode measure the same work.
+  force, and that `full` and `incremental` energy modes give identical results, so the choice of mode does not change which seams are removed.
 
 ## 6. Limitations
 
@@ -255,8 +246,7 @@ The evaluation checks itself while it runs:
   its slope is the least certain: a repeat of the scaling experiment also gave 1.6–1.8.
 - The gap % measures cost (energy), not perceived quality. The output images in
   `results/eval_images/` are used for the visual side.
-- Only vertical seams are measured in E1/E4. Horizontal seams use the same finder on
-  the transposed image (P1), so the results carry over.
+- Only vertical seams are measured in E1/E4. Horizontal seams use the same finder on the transposed image (P1), so the method is the same, but their quality and timing were not measured separately.
 - Timings depend on the machine; the slopes and the ratios between methods are
   more meaningful than the absolute seconds. All timings here are from one run on one
   machine (Section 3). On other hardware and compilers the absolute times and the

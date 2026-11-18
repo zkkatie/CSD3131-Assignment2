@@ -35,10 +35,11 @@ jobs:
           ./build/seamcarve images/broadway_small.jpg --width 90 --method graphcut --save-seams --out results/broadway_small_graphcut.png
       - name: Package the programs and the sample results
         run: |
-          mkdir -p package/bin package/samples
+          mkdir -p package/bin package/samples package/images
           cp build/seamcarve build/tests build/evaluate package/bin/
           if [ -f build/seamcarve_viewer ]; then cp build/seamcarve_viewer package/bin/; fi
           cp results/*.png package/samples/
+          cp images/*.jpg package/images/
           cp README.md package/
           tar -czf seamcarve-ubuntu.tar.gz -C package .
       - uses: actions/upload-artifact@v7

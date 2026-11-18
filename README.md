@@ -72,6 +72,26 @@ Ubuntu 24.04 or newer, including WSL (tested on Ubuntu 26.04 under WSL). On an O
 built with the GTK window backend, such as Ubuntu 22.04's, the viewer closes straight
 away. It is not built at all if OpenCV's highgui module is missing.
 
+## Run the packaged build (no compiling)
+
+Every pull request and every push to `main` builds a package, `seamcarve-ubuntu.tar.gz`
+(Actions tab, `delivery` workflow, artifact `seamcarve-ubuntu`). A version tag such as
+`v1.0` also publishes it on the Releases page. It holds the programs (`bin/`), the test
+photos (`images/`) and sample results (`samples/`).
+
+```bash
+sudo apt update && sudo apt install -y libopencv-dev   # the OpenCV libraries the programs load
+unzip seamcarve-ubuntu.zip   # only for the Actions download, which wraps the package in a zip
+mkdir seamcarve && tar -xzf seamcarve-ubuntu.tar.gz -C seamcarve && cd seamcarve
+./bin/seamcarve images/broadway.jpg --width 600 --method dp --save-seams
+./bin/seamcarve_viewer images/broadway.jpg   # in the package when OpenCV's highgui was available to the build
+./bin/tests
+```
+
+The programs are built on GitHub's `ubuntu-latest` runner, so they need the same Ubuntu
+release (26.04 when this was written; tested there under WSL). On another release, build
+from source as above.
+
 ## Test
 
 ```bash
@@ -144,6 +164,7 @@ docs/Assignment 2 Report.docx the team report                                   
 images/                       test photos (_small = 120 px wide, for Graph Cut)
 results/                      output (not committed)
 .github/workflows/tests.yml   CI: builds and runs tests on every push
+.github/workflows/delivery.yml  CD: packages the programs, test photos and sample results
 ```
 
 ## The shared interface (everyone must follow this)
