@@ -147,7 +147,7 @@ TEST(dp_bends_around_objects_that_block_every_column) {
 
 TEST(dp_variants_agree) {
     const int sizes[][2] = {{1, 1}, {1, 9}, {9, 1}, {2, 2}, {17, 23}, {40, 31}, {120, 90}, {300, 200}};
-    for (auto [h, w] : sizes)
+    for (const auto& [h, w] : sizes)
         for (unsigned seed = 0; seed < 3; ++seed) {
             cv::Mat e = random_energy(h, w, seed * 1000 + h);
             const std::vector<int> ref = dp::find_seam(e);
