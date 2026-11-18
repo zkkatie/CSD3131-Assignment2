@@ -26,9 +26,11 @@
 //                  DP and Graph Cut must be optimal 100% of the time (checked).
 //
 //   E3 scaling     Synthetic images of growing size. Seam finding time per seam,
-//                  best of 3. Three series: square (n x n), width only (H fixed),
+//                  best of 3 runs of up to 20 seams (Graph Cut: 1 run of 2 seams).
+//                  Three series: square (n x n), width only (H fixed),
 //                  height only (W fixed). A least-squares fit of
-//                  log(time) = slope * log(pixels) + c gives the measured growth:
+//                  log(time) = slope * log(pixels) + c gives the measured growth,
+//                  where pixels is the mean image size over the timed seams:
 //                    slope ~ 1    time grows like H*W   (expected for DP)
 //                    slope ~ 0.5  time grows like H+W   (expected for Greedy, square)
 //                    slope > 1    worse than linear     (expected for Graph Cut)
@@ -357,10 +359,11 @@ void run_scaling(const Config& cfg) {
     std::vector<Series> all = {square, width, height};
     if (cfg.quick) all = {square};
 
-    std::printf("\nE3 SCALING: seam finding time per seam (best of %d), synthetic images\n", cfg.repeats);
-    std::printf("%-7s %-9s %11s %10s %14s\n", "series", "method", "size", "pixels", "ms per seam");
+    std::printf("\nE3 SCALING: seam finding time per seam, synthetic images\n");
+    std::printf("(best of %d runs of up to 20 seams; slow methods: 1 run of 2 seams)\n", cfg.repeats);
+    std::printf("%-7s %-9s %11s %11s %14s\n", "series", "method", "size", "mean pixels", "ms per seam");
 
-    auto csv = open_csv(cfg, "eval_scaling.csv", "series,method,height,width,pixels,seams,find_time_per_seam");
+    auto csv = open_csv(cfg, "eval_scaling.csv", "series,method,height,width,mean_pixels,seams,find_time_per_seam");
     auto slopes_csv = open_csv(cfg, "eval_scaling_slopes.csv", "series,method,points,slope");
     std::map<std::pair<std::string, std::string>, double> slopes;
 
@@ -376,10 +379,13 @@ void run_scaling(const Config& cfg) {
                     const CarveResult res = carve(img, w - k, h, finder);
                     best = std::min(best, res.stats.find_time / k);
                 }
-                const double pixels = static_cast<double>(h) * w;
+                // The image loses one column per seam, so the k timed seams were found at
+                // widths w, w-1, ..., w-k+1. Fit against the mean size that was timed, not
+                // the starting size (which would overstate the slope at small widths).
+                const double pixels = h * (w - (k - 1) / 2.0);
                 points.push_back({pixels, best});
                 const std::string size = std::to_string(h) + "x" + std::to_string(w);
-                std::printf("%-7s %-9s %11s %10.0f %14.5f\n", series.name.c_str(), method.c_str(), size.c_str(),
+                std::printf("%-7s %-9s %11s %11.0f %14.5f\n", series.name.c_str(), method.c_str(), size.c_str(),
                             pixels, best * 1000);
                 csv << series.name << "," << method << "," << h << "," << w << "," << pixels << "," << k << ","
                     << best << "\n";
