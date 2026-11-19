@@ -4,6 +4,8 @@ Content-aware image resizing using seam carving, implemented three ways:
 Dynamic Programming, Greedy, and Graph Cut (min-cut/max-flow). Written in C++17
 with OpenCV.
 
+**Try it in a browser, nothing to install:** https://zkkatie.github.io/CSD3131-Assignment2/
+
 ## Setup (WSL / Ubuntu)
 
 ```bash
