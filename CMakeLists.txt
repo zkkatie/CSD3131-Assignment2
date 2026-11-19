@@ -56,12 +56,3 @@ target_link_libraries(benchmark_dp PRIVATE seamcarve_core)
 # Evaluation: compares every seam finder (quality, optimality, scaling, time breakdown)
 add_executable(evaluate bench/evaluate.cpp)
 target_link_libraries(evaluate PRIVATE seamcarve_core)
-
-# Interactive viewer (bonus items 7a and 7b). It needs OpenCV's highgui module for
-# the window, so it is skipped when that module is not installed.
-if(TARGET opencv_highgui)
-  add_executable(seamcarve_viewer src/viewer.cpp)
-  target_link_libraries(seamcarve_viewer PRIVATE seamcarve_core opencv_highgui)
-else()
-  message(STATUS "OpenCV highgui not found: seamcarve_viewer will not be built")
-endif()

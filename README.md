@@ -4,6 +4,8 @@ Content-aware image resizing using seam carving, implemented three ways:
 Dynamic Programming, Greedy, and Graph Cut (min-cut/max-flow). Written in C++17
 with OpenCV.
 
+**Try it in a browser, nothing to install:** https://zkkatie.github.io/CSD3131-Assignment2/
+
 ## Setup (WSL / Ubuntu)
 
 ```bash
@@ -43,43 +45,28 @@ Rebuild with the second line after any change. If you add a new file in
 | `--save-seams` | also save the input with every removed seam drawn (red = vertical, blue = horizontal) |
 | `--out` | output path (default `results/<name>_<method>.png`) |
 
-## Viewer (bonus: step-by-step view and interactive resizing)
-
-```bash
-./build/seamcarve_viewer images/broadway.jpg
-./build/seamcarve_viewer images/broadway.jpg --method greedy --width 600 --height 450
-./build/seamcarve_viewer images/broadway_small.jpg --method graphcut
-```
-
-Opens a window with two panels. Left: the original with every removed seam painted
-(red = vertical, blue = horizontal). Right: the carved image.
-
-| Control | What it does |
-|---|---|
-| Width / Height sliders | carve the image to that size (down to half the original) |
-| Space | replay the carve one seam at a time; the seam about to go is yellow. Space again stops |
-| `P`, then `N` | during a replay: pause, then show one more seam per `N`. `P` again resumes |
-| `+` / `-` | replay faster / slower |
-| `S` | save the carved image and the seam picture to `results/` |
-| `Q` or Esc | quit |
-
-`--method` takes the same names as `seamcarve` (default `dp`). `graphcut` only runs on
-the `_small` images, where a slider move can take several seconds. `--width` and
-`--height` set the size the sliders start at. Click on the picture before using the keys.
-
-The viewer needs a desktop to open its window, and an OpenCV whose windows use Qt:
-Ubuntu 24.04 or newer, including WSL (tested on Ubuntu 26.04 under WSL). On an OpenCV
-built with the GTK window backend, such as Ubuntu 22.04's, the viewer closes straight
-away. It is not built at all if OpenCV's highgui module is missing.
-
-## Web page (the viewer in a browser)
+## Web page (bonus: step-by-step view and interactive resizing)
 
 **https://zkkatie.github.io/CSD3131-Assignment2/**
 
-The same two panels, sliders and step-by-step replay as the viewer, with nothing to
-install. The page runs this repository's C++ (`carve()` and the seam finders), compiled
-to WebAssembly, in the visitor's browser. Nothing is precomputed, and photos can be
-uploaded. `graphcut` is offered only for images of up to 20,000 pixels (the `_small` photos).
+Nothing to install. The page runs this repository's C++ (`carve()` and the seam finders),
+compiled to WebAssembly, in the visitor's browser. Nothing is precomputed.
+
+Two panels. Left: the original with every removed seam painted (red = vertical,
+blue = horizontal). Right: the carved image.
+
+| Control | What it does |
+|---|---|
+| Photo, Upload | one of the test photos, or your own image (shrunk to at most 800 px on the long side) |
+| Method, Energy | the seam finder and the energy function, as `--method` and `--energy` |
+| Width / Height sliders | carve the image to that size (down to half the original) |
+| Replay step by step, or Space | replay the carve one seam at a time; the seam about to go is yellow. Again to pause |
+| ◀ ▶, or the arrow keys | one seam back or forward |
+| Seam slider, Speed | jump to any seam; replay slower or faster |
+
+Under the controls the page shows the number of seams, the total seam cost and the time.
+`graphcut` is offered only for images of up to 20,000 pixels (the `_small` photos), where a
+slider move can take several seconds.
 
 A link can choose the example:
 `?photo=broadway_small&method=graphcut&width=90` (also `height`, `energy=gradient`).
@@ -95,26 +82,6 @@ python3 -m http.server -d build/site      # then open http://localhost:8000
 the same photos with each method, and the script fails unless the output is identical,
 pixel for pixel. The `pages` workflow runs it on every pull request and publishes the
 page on every push to `main`.
-
-## Run the packaged build (no compiling)
-
-Every pull request and every push to `main` builds a package, `seamcarve-ubuntu.tar.gz`
-(Actions tab, `delivery` workflow, artifact `seamcarve-ubuntu`). A version tag such as
-`v1.0` also publishes it on the Releases page. It holds the programs (`bin/`), the test
-photos (`images/`) and sample results (`samples/`).
-
-```bash
-sudo apt update && sudo apt install -y libopencv-dev   # the OpenCV libraries the programs load
-unzip seamcarve-ubuntu.zip   # only for the Actions download, which wraps the package in a zip
-mkdir seamcarve && tar -xzf seamcarve-ubuntu.tar.gz -C seamcarve && cd seamcarve
-./bin/seamcarve images/broadway.jpg --width 600 --method dp --save-seams
-./bin/seamcarve_viewer images/broadway.jpg   # in the package when OpenCV's highgui was available to the build
-./bin/tests
-```
-
-The programs are built on GitHub's `ubuntu-latest` runner, so they need the same Ubuntu
-release (26.04 when this was written; tested there under WSL). On another release, build
-from source as above.
 
 ## Test
 
@@ -170,7 +137,6 @@ include/seamcarve/
   dp.hpp                      DP variants (used by tests and benchmark)           Ananth
 src/
   energy.cpp, seam.cpp, carve.cpp, cli.cpp, main.cpp                              Katie
-  viewer.cpp                  interactive viewer (step-by-step view, sliders)     Adi
   methods/
     registry.cpp              method registry                                     Katie
     baseline.cpp              straight-column finder, for testing only            Katie
@@ -182,7 +148,7 @@ tests/
   test_core.cpp               tests (every tests/test_*.cpp is built into ./build/tests)
   test_dp.cpp                 DP tests                                            Ananth
 web/
-  index.html, worker.js       the web page (same panels and controls as the viewer) Adi
+  index.html, worker.js       the web page (step-by-step view, sliders)           Adi
   seamcarve_web.cpp           entry points the page calls; converts pixels, calls carve()
   build.sh                    builds the page (C++ -> WebAssembly) and checks it
   check/                      the check: native output against WebAssembly output
@@ -193,7 +159,6 @@ docs/Assignment 2 Report.docx the team report                                   
 images/                       test photos (_small = 120 px wide, for Graph Cut)
 results/                      output (not committed)
 .github/workflows/tests.yml   CI: builds and runs tests on every push
-.github/workflows/delivery.yml  CD: packages the programs, test photos and sample results
 .github/workflows/pages.yml   CD: builds, checks and publishes the web page
 ```
 
