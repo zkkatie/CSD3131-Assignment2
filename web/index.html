@@ -151,7 +151,7 @@
 const PHOTOS = ['broadway', 'building', 'sunset', 'windmill',
                 'broadway_small', 'building_small', 'sunset_small', 'windmill_small'];
 const METHOD_NAMES = { dp: 'Dynamic Programming', greedy: 'Greedy', graphcut: 'Graph Cut' };
-const GRAPHCUT_MAX_PIXELS = 20000;  // same limit as the C++ viewer (src/viewer.cpp)
+const GRAPHCUT_MAX_PIXELS = 20000;  // Graph Cut needs about 0.5 s per seam at 200x200
 const UPLOAD_MAX_SIDE = 800;        // uploaded images are shrunk to this, the size of the test photos
 const RED = [255, 0, 0], BLUE = [0, 0, 255], YELLOW = [255, 255, 0];
 
@@ -343,7 +343,7 @@ function setSource(picture, w, h, targetWidth, targetHeight) {
     c.height = h;
     c.classList.toggle('small', w < 420);  // the small photos are shown enlarged: keep their pixels sharp
   }
-  // The sliders go down to half size, like the C++ viewer.
+  // The sliders go down to half size.
   const setSlider = (id, max, wanted, fallback) => {
     const min = Math.max(1, Math.floor(max / 2));
     $(id).min = min;

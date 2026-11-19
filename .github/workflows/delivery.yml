@@ -37,7 +37,6 @@ jobs:
         run: |
           mkdir -p package/bin package/samples package/images
           cp build/seamcarve build/tests build/evaluate package/bin/
-          if [ -f build/seamcarve_viewer ]; then cp build/seamcarve_viewer package/bin/; fi
           cp results/*.png package/samples/
           cp images/*.jpg package/images/
           cp README.md package/
