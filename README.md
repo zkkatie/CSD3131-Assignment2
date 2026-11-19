@@ -83,25 +83,6 @@ the same photos with each method, and the script fails unless the output is iden
 pixel for pixel. The `pages` workflow runs it on every pull request and publishes the
 page on every push to `main`.
 
-## Run the packaged build (no compiling)
-
-Every pull request and every push to `main` builds a package, `seamcarve-ubuntu.tar.gz`
-(Actions tab, `delivery` workflow, artifact `seamcarve-ubuntu`). A version tag such as
-`v1.0` also publishes it on the Releases page. It holds the programs (`bin/`), the test
-photos (`images/`) and sample results (`samples/`).
-
-```bash
-sudo apt update && sudo apt install -y libopencv-dev   # the OpenCV libraries the programs load
-unzip seamcarve-ubuntu.zip   # only for the Actions download, which wraps the package in a zip
-mkdir seamcarve && tar -xzf seamcarve-ubuntu.tar.gz -C seamcarve && cd seamcarve
-./bin/seamcarve images/broadway.jpg --width 600 --method dp --save-seams
-./bin/tests
-```
-
-The programs are built on GitHub's `ubuntu-latest` runner, so they need the same Ubuntu
-release (26.04 when this was written; tested there under WSL). On another release, build
-from source as above.
-
 ## Test
 
 ```bash
@@ -178,7 +159,6 @@ docs/Assignment 2 Report.docx the team report                                   
 images/                       test photos (_small = 120 px wide, for Graph Cut)
 results/                      output (not committed)
 .github/workflows/tests.yml   CI: builds and runs tests on every push
-.github/workflows/delivery.yml  CD: packages the programs, test photos and sample results
 .github/workflows/pages.yml   CD: builds, checks and publishes the web page
 ```
 
