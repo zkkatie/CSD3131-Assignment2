@@ -1,0 +1,54 @@
+# CD (bonus item 7c): builds the web page and publishes it with GitHub Pages.
+#
+#   pull request    the page is built and checked; nothing is published
+#   push to main    the page is built, checked and published at
+#                   https://zkkatie.github.io/CSD3131-Assignment2/
+#
+# web/build.sh does the work. It compiles the C++ to WebAssembly, then carves the test
+# photos with the native build and with the WebAssembly build, and fails unless the
+# results are identical. A page that carves differently from the program is never published.
+name: pages
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y g++ cmake pkg-config libopencv-dev
+      - name: Reuse OpenCV for WebAssembly from an earlier run
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/seamcarve-wasm/opencv
+          key: opencv-wasm-${{ hashFiles('web/build.sh') }}
+      - name: Build and check the page
+        run: bash web/build.sh
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/site
+
+  publish:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5

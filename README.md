@@ -72,6 +72,30 @@ Ubuntu 24.04 or newer, including WSL (tested on Ubuntu 26.04 under WSL). On an O
 built with the GTK window backend, such as Ubuntu 22.04's, the viewer closes straight
 away. It is not built at all if OpenCV's highgui module is missing.
 
+## Web page (the viewer in a browser)
+
+**https://zkkatie.github.io/CSD3131-Assignment2/**
+
+The same two panels, sliders and step-by-step replay as the viewer, with nothing to
+install. The page runs this repository's C++ (`carve()` and the seam finders), compiled
+to WebAssembly, in the visitor's browser. Nothing is precomputed, and photos can be
+uploaded. `graphcut` is offered only for images of up to 20,000 pixels (the `_small` photos).
+
+A link can choose the example:
+`?photo=broadway_small&method=graphcut&width=90` (also `height`, `energy=gradient`).
+
+To build and open it yourself (needs `git`, `python3` and `pkg-config` as well):
+
+```bash
+web/build.sh                              # the first run downloads Emscripten and builds OpenCV for it
+python3 -m http.server -d build/site      # then open http://localhost:8000
+```
+
+`web/build.sh` also checks the result: the native build and the WebAssembly build carve
+the same photos with each method, and the script fails unless the output is identical,
+pixel for pixel. The `pages` workflow runs it on every pull request and publishes the
+page on every push to `main`.
+
 ## Run the packaged build (no compiling)
 
 Every pull request and every push to `main` builds a package, `seamcarve-ubuntu.tar.gz`
@@ -157,6 +181,11 @@ tests/
   testing.hpp                 tiny test framework (no downloads needed)
   test_core.cpp               tests (every tests/test_*.cpp is built into ./build/tests)
   test_dp.cpp                 DP tests                                            Ananth
+web/
+  index.html, worker.js       the web page (same panels and controls as the viewer) Adi
+  seamcarve_web.cpp           entry points the page calls; converts pixels, calls carve()
+  build.sh                    builds the page (C++ -> WebAssembly) and checks it
+  check/                      the check: native output against WebAssembly output
 bench/benchmark_energy.cpp    energy update benchmark                             Katie
 bench/evaluate.cpp            method comparison (quality, speed, scaling)         Asri
 bench/benchmark_dp.cpp        DP variants: time, memory, threads                  Ananth
@@ -165,6 +194,7 @@ images/                       test photos (_small = 120 px wide, for Graph Cut)
 results/                      output (not committed)
 .github/workflows/tests.yml   CI: builds and runs tests on every push
 .github/workflows/delivery.yml  CD: packages the programs, test photos and sample results
+.github/workflows/pages.yml   CD: builds, checks and publishes the web page
 ```
 
 ## The shared interface (everyone must follow this)

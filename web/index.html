@@ -1,0 +1,443 @@
+<!doctype html>
+<!--
+  Web page for the seam carving project (bonus items 7a and 7b).
+
+  The carving is done by the project's C++ code, compiled to WebAssembly (seamcarve.js and
+  seamcarve.wasm, built by web/build.sh) and run in worker.js. This page adds no algorithm:
+  it sends pixels in, gets the carved image and every removed seam back, and draws them.
+
+  Left panel:  the original image with every removed seam painted on it
+               (red = vertical seam, blue = horizontal seam).
+  Right panel: the carved image. While stepping, the next seam to be removed is yellow.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seam carving, live</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1c2330; --muted: #5b6676; --line: #d8dde5;
+    --accent: #1f5fbf; --accent-ink: #ffffff; --empty: #e9ecf1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --panel: #1d2229; --ink: #e8ecf2; --muted: #9aa5b5; --line: #343c48;
+      --accent: #6ea8ff; --accent-ink: #0d1420; --empty: #262c35;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 26px; margin: 0 0 2px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  a { color: var(--accent); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-start; }
+  .field.slider { flex: 1 1 220px; }
+  .field > label, .field > .label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+  .field .value { font-weight: 400; color: var(--muted); }
+  select, button, input[type=range] { font: inherit; }
+  select, button { color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+                   border-radius: 7px; padding: 6px 10px; }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .methods button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  #status { margin: 14px 2px; min-height: 1.5em; }
+  #status.busy { color: var(--muted); }
+  #status.error { color: #c0392b; }
+  .panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 760px) { .panels { grid-template-columns: minmax(0, 1fr); } }
+  figure { margin: 0; }
+  figcaption { font-weight: 600; margin-bottom: 8px; }
+  figcaption span { font-weight: 400; color: var(--muted); }
+  .frame { background: var(--empty); border-radius: 6px; line-height: 0; overflow: hidden; }
+  canvas { width: 100%; height: auto; }
+  canvas.small { image-rendering: pixelated; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin: 0 3px 0 8px; }
+  .replay { margin-top: 16px; }
+  .replay input[type=range] { flex: 1 1 260px; }
+  .notes { color: var(--muted); margin-top: 18px; font-size: 14px; }
+  .notes li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Seam carving, live</h1>
+  <p class="sub">CSD3130 / CSD3131 Assignment 2, Group 14. This page runs the project's C++ code in your browser.
+    <a href="https://github.com/zkkatie/CSD3131-Assignment2">Source code</a></p>
+
+  <div class="card controls">
+    <div class="field">
+      <label for="photo">Photo</label>
+      <div class="row">
+        <select id="photo"></select>
+        <button id="uploadButton" type="button">Upload…</button>
+        <input id="upload" type="file" accept="image/*" hidden>
+      </div>
+    </div>
+    <div class="field">
+      <span class="label">Method</span>
+      <div class="row methods">
+        <button type="button" data-method="dp" aria-pressed="true">Dynamic Programming</button>
+        <button type="button" data-method="greedy" aria-pressed="false">Greedy</button>
+        <button type="button" data-method="graphcut" aria-pressed="false">Graph Cut</button>
+      </div>
+    </div>
+    <div class="field slider">
+      <label for="width">Width <span class="value" id="widthValue"></span></label>
+      <input id="width" type="range" min="1" max="1" value="1">
+    </div>
+    <div class="field slider">
+      <label for="height">Height <span class="value" id="heightValue"></span></label>
+      <input id="height" type="range" min="1" max="1" value="1">
+    </div>
+    <div class="field">
+      <label for="energy">Energy</label>
+      <select id="energy">
+        <option value="sobel">Sobel</option>
+        <option value="gradient">Central difference</option>
+      </select>
+    </div>
+  </div>
+
+  <p id="status" class="busy" role="status">Loading…</p>
+
+  <div class="panels">
+    <figure class="card">
+      <figcaption>Original, with the removed seams
+        <span><i class="swatch" style="background:#ff0000"></i>vertical<i class="swatch" style="background:#0000ff"></i>horizontal</span>
+      </figcaption>
+      <div class="frame"><canvas id="left" width="1" height="1"></canvas></div>
+    </figure>
+    <figure class="card">
+      <figcaption>Carved image
+        <span><i class="swatch" style="background:#ffff00"></i>next seam to be removed</span>
+      </figcaption>
+      <div class="frame"><canvas id="right" width="1" height="1"></canvas></div>
+    </figure>
+  </div>
+
+  <div class="card replay">
+    <div class="row">
+      <button id="play" type="button">Replay step by step</button>
+      <button id="back" type="button" aria-label="One seam back">◀</button>
+      <button id="next" type="button" aria-label="One seam forward">▶</button>
+      <input id="step" type="range" min="0" max="0" value="0" aria-label="Seam number">
+      <span id="stepValue" class="value"></span>
+      <label for="speed">Speed</label>
+      <select id="speed">
+        <option value="8">Slow</option>
+        <option value="40" selected>Normal</option>
+        <option value="200">Fast</option>
+      </select>
+    </div>
+  </div>
+
+  <ul class="notes">
+    <li>Drag a size slider (down to half size) and let go: the image is carved again, all vertical seams first, then all horizontal seams.</li>
+    <li>The seams are found by the same C++ as the command-line program, compiled to WebAssembly. Nothing is precomputed.</li>
+    <li>Graph Cut is only offered for images of up to 20,000 pixels (the small photos), because it is very slow.</li>
+    <li>Keys: Space replays or pauses, the left and right arrows step one seam.</li>
+  </ul>
+</main>
+
+<script>
+const PHOTOS = ['broadway', 'building', 'sunset', 'windmill',
+                'broadway_small', 'building_small', 'sunset_small', 'windmill_small'];
+const METHOD_NAMES = { dp: 'Dynamic Programming', greedy: 'Greedy', graphcut: 'Graph Cut' };
+const GRAPHCUT_MAX_PIXELS = 20000;  // same limit as the C++ viewer (src/viewer.cpp)
+const UPLOAD_MAX_SIDE = 800;        // uploaded images are shrunk to this, the size of the test photos
+const RED = [255, 0, 0], BLUE = [0, 0, 255], YELLOW = [255, 255, 0];
+
+const $ = (id) => document.getElementById(id);
+const leftCtx = $('left').getContext('2d'), rightCtx = $('right').getContext('2d');
+
+let source = null;   // { rgba, w, h }: the image being carved
+let result = null;   // what the C++ returned for the current settings (see onResult)
+let method = 'dp';
+let step = 0;        // the panels show the state after this many seams
+let playing = false, lastFrame = 0, owed = 0;
+let worker = null, busy = false, requestId = 0;
+let loadId = 0;      // only the newest photo or upload may become the source
+
+// ---------------------------------------------------------------- carving (in the worker)
+
+function carve() {
+  if (!source) return;
+  if (busy) { worker.terminate(); worker = null; }  // drop a carve that is still running
+  if (!worker) {
+    worker = new Worker('worker.js');
+    worker.onmessage = onResult;
+    worker.onerror = (e) => {  // e.g. seamcarve.js could not be loaded: do not reuse this worker
+      worker.terminate();
+      worker = null;
+      busy = false;
+      setStatus('Could not run the carving code: ' + (e.message || 'the worker failed to start'), 'error');
+    };
+  }
+  playing = false;
+  busy = true;
+  const targetWidth = Number($('width').value), targetHeight = Number($('height').value);
+  const seams = (source.w - targetWidth) + (source.h - targetHeight);
+  setStatus(method === 'graphcut' && seams > 0
+    ? `Carving with Graph Cut: ${seams} seams, a few seconds for every 10…` : 'Carving…', 'busy');
+  worker.postMessage({ id: ++requestId, rgba: source.rgba, width: source.w, height: source.h,
+                       targetWidth, targetHeight, method, energy: $('energy').value });
+}
+
+function onResult(event) {
+  const r = event.data;
+  if (r.id !== requestId) return;
+  busy = false;
+  if (r.error) {  // the module may be unusable after a failure: start a fresh worker next time
+    worker.terminate();
+    worker = null;
+    setStatus(r.error, 'error');
+    return;
+  }
+
+  // r.seams is a flat list: for each seam, direction, n, then n (row, col) pairs in the original image.
+  const seams = [];
+  for (let i = 0; i < r.seams.length;) {
+    const horizontal = r.seams[i] === 1, n = r.seams[i + 1];
+    const pixels = new Int32Array(n);  // positions in the original image, as row * width + col
+    for (let j = 0; j < n; j++) pixels[j] = r.seams[i + 2 + 2 * j] * source.w + r.seams[i + 3 + 2 * j];
+    seams.push({ horizontal, pixels });
+    i += 2 + 2 * n;
+  }
+  result = { seams, image: new ImageData(new Uint8ClampedArray(r.image.buffer), r.width, r.height),
+             cost: r.cost, findTime: r.findTime, totalTime: r.totalTime, method };
+
+  // The step-by-step pictures are rebuilt here from the seams. Rebuilding the last step must give
+  // exactly the image the C++ returned; if it ever did not, say so instead of showing a wrong picture.
+  const rebuilt = imageAfter(seams.length).data;
+  const same = rebuilt.length === result.image.data.length && rebuilt.every((v, i) => v === result.image.data[i]);
+  document.body.dataset.selfcheck = same ? 'ok' : 'mismatch';
+
+  const horizontal = seams.filter((s) => s.horizontal).length;
+  const size = `${source.w}×${source.h} → ${r.width}×${r.height}`;
+  setStatus(`${METHOD_NAMES[method]}, ${size}: ${seams.length} seams (${seams.length - horizontal} vertical, ` +
+    `${horizontal} horizontal), total seam cost ${Math.round(r.cost).toLocaleString('en')}, ` +
+    `carved in ${r.totalTime.toFixed(2)} s (${r.findTime.toFixed(2)} s finding seams).` +
+    (same ? '' : ' Warning: the step-by-step view does not match the result.'), same ? '' : 'error');
+  $('step').max = seams.length;
+  showStep(seams.length);
+}
+
+// ---------------------------------------------------------------- drawing
+
+// The image after the first k seams have been removed, with seam k (the next one) in yellow.
+// carve() removes every vertical seam before any horizontal seam. So: drop the pixels of the
+// vertical seams from each row, then drop the pixels of the horizontal seams from each column.
+function imageAfter(k) {
+  const { w, h, rgba } = source, seams = result.seams;
+  const mark = new Uint8Array(w * h);  // 1 = removed by a vertical seam, 2 = by a horizontal seam, 3 = next seam
+  let vertical = 0, horizontal = 0;
+  for (let s = 0; s < k; s++) {
+    for (const p of seams[s].pixels) mark[p] = seams[s].horizontal ? 2 : 1;
+    if (seams[s].horizontal) horizontal++; else vertical++;
+  }
+  if (k < seams.length) for (const p of seams[k].pixels) mark[p] = 3;
+
+  const w2 = w - vertical, h2 = h - horizontal;
+  const kept = new Int32Array(h * w2);  // after the vertical seams: which original pixel is at (row, col)
+  for (let r = 0; r < h; r++) {
+    for (let c = 0, j = 0; c < w; c++) if (mark[r * w + c] !== 1) kept[r * w2 + j++] = r * w + c;
+  }
+  const out = new Uint8ClampedArray(w2 * h2 * 4);
+  for (let c = 0; c < w2; c++) {
+    for (let r = 0, i = 0; r < h; r++) {
+      const p = kept[r * w2 + c];
+      if (mark[p] === 2) continue;
+      const o = (i++ * w2 + c) * 4;
+      if (mark[p] === 3) { out[o] = YELLOW[0]; out[o + 1] = YELLOW[1]; out[o + 2] = YELLOW[2]; }
+      else { out[o] = rgba[4 * p]; out[o + 1] = rgba[4 * p + 1]; out[o + 2] = rgba[4 * p + 2]; }
+      out[o + 3] = 255;
+    }
+  }
+  return new ImageData(out, w2, h2);
+}
+
+function showStep(k) {
+  step = k;
+  const seams = result.seams;
+  // left: the original with seams 1..k painted on it
+  const left = new ImageData(new Uint8ClampedArray(source.rgba), source.w, source.h);
+  for (let s = 0; s < k; s++) {
+    const colour = seams[s].horizontal ? BLUE : RED;
+    for (const p of seams[s].pixels) left.data.set(colour, 4 * p);
+  }
+  leftCtx.putImageData(left, 0, 0);
+  // right: the image after k seams (the C++ result itself at the last step)
+  rightCtx.clearRect(0, 0, source.w, source.h);
+  rightCtx.putImageData(k === seams.length ? result.image : imageAfter(k), 0, 0);
+
+  $('step').value = k;
+  $('stepValue').textContent = seams.length ? `seam ${k} of ${seams.length}` : 'no seams removed';
+  $('play').textContent = playing ? 'Pause' : (k === seams.length ? 'Replay step by step' : 'Continue');
+  for (const id of ['play', 'back', 'next', 'step']) $(id).disabled = seams.length === 0;
+}
+
+function setStatus(text, kind) {
+  $('status').textContent = text;
+  $('status').className = kind || '';
+  document.body.dataset.state = kind === 'busy' ? 'busy' : 'ready';
+}
+
+// ---------------------------------------------------------------- replay
+
+function play() {
+  if (!result || busy || result.seams.length === 0) return;
+  playing = !playing;
+  if (playing) {
+    if (step === result.seams.length) step = 0;
+    lastFrame = performance.now();
+    owed = 0;
+    requestAnimationFrame(frame);
+  }
+  showStep(step);
+}
+
+function frame(now) {
+  if (!playing) return;
+  owed += (now - lastFrame) / 1000 * Number($('speed').value);  // seams per second
+  lastFrame = now;
+  const advance = Math.floor(owed);
+  owed -= advance;
+  if (advance > 0) {
+    const k = Math.min(step + advance, result.seams.length);
+    if (k === result.seams.length) playing = false;
+    showStep(k);
+  }
+  if (playing) requestAnimationFrame(frame);
+}
+
+function stepBy(delta) {
+  if (!result || busy) return;
+  playing = false;
+  showStep(Math.max(0, Math.min(result.seams.length, step + delta)));
+}
+
+// ---------------------------------------------------------------- choosing the image and the size
+
+// Takes anything drawImage accepts. Sets the sliders (`targetWidth` and `targetHeight` are optional).
+function setSource(picture, w, h, targetWidth, targetHeight) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#fff';  // uploaded images may be transparent; carve them on white
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(picture, 0, 0, w, h);
+  source = { rgba: ctx.getImageData(0, 0, w, h).data, w, h };
+  result = null;
+
+  for (const c of [$('left'), $('right')]) {
+    c.width = w;
+    c.height = h;
+    c.classList.toggle('small', w < 420);  // the small photos are shown enlarged: keep their pixels sharp
+  }
+  // The sliders go down to half size, like the C++ viewer.
+  const setSlider = (id, max, wanted, fallback) => {
+    const min = Math.max(1, Math.floor(max / 2));
+    $(id).min = min;
+    $(id).max = max;
+    $(id).value = Math.max(min, Math.min(max, Number(wanted) || fallback));
+  };
+  setSlider('width', w, targetWidth, Math.round(w * 0.75));
+  setSlider('height', h, targetHeight, h);
+  showSizes();
+
+  const graphcut = document.querySelector('[data-method=graphcut]');
+  graphcut.disabled = w * h > GRAPHCUT_MAX_PIXELS;
+  graphcut.title = graphcut.disabled ? 'Graph Cut is only offered for images of up to 20,000 pixels' : '';
+  if (graphcut.disabled && method === 'graphcut') setMethod('dp');
+  carve();
+}
+
+function showSizes() {
+  $('widthValue').textContent = `${$('width').value} of ${source.w} px`;
+  $('heightValue').textContent = `${$('height').value} of ${source.h} px`;
+}
+
+function setMethod(name) {
+  method = name;
+  for (const b of document.querySelectorAll('[data-method]')) b.setAttribute('aria-pressed', b.dataset.method === name);
+}
+
+// Loads a picture with `get` and makes it the source, unless a newer load has started meanwhile.
+async function load(what, get) {
+  const mine = ++loadId;
+  setStatus(`Loading ${what}…`, 'busy');
+  try {
+    const args = await get();
+    if (mine === loadId) setSource(...args);
+  } catch (e) {
+    if (mine === loadId) setStatus(`Could not load ${what}: ${e.message}`, 'error');
+  }
+}
+
+function loadPhoto(name, targetWidth, targetHeight) {
+  return load('the photo', async () => {
+    const response = await fetch(`images/${name}.png`);
+    if (!response.ok) throw new Error(`images/${name}.png: ${response.status}`);
+    // No colour conversion: the page must carve exactly the pixel values stored in the file.
+    const picture = await createImageBitmap(await response.blob(),
+                                            { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+    return [picture, picture.width, picture.height, targetWidth, targetHeight];
+  });
+}
+
+function loadUpload(file) {
+  $('photo').selectedIndex = -1;  // so that choosing the same photo again counts as a change
+  return load('the uploaded image', async () => {
+    const picture = await createImageBitmap(file);
+    const scale = Math.min(1, UPLOAD_MAX_SIDE / Math.max(picture.width, picture.height));
+    return [picture, Math.max(1, Math.round(picture.width * scale)), Math.max(1, Math.round(picture.height * scale))];
+  });
+}
+
+// ---------------------------------------------------------------- wiring
+
+for (const name of PHOTOS) $('photo').add(new Option(name.replace('_', ' ') + '.jpg', name));
+$('photo').onchange = () => loadPhoto($('photo').value);
+$('uploadButton').onclick = () => $('upload').click();
+$('upload').onchange = () => {
+  const file = $('upload').files[0];
+  $('upload').value = '';  // so that uploading the same file again counts as a change
+  if (file) loadUpload(file);
+};
+for (const b of document.querySelectorAll('[data-method]')) b.onclick = () => { setMethod(b.dataset.method); carve(); };
+$('energy').onchange = carve;
+for (const id of ['width', 'height']) {
+  $(id).oninput = showSizes;  // while dragging: only the number
+  $(id).onchange = carve;     // on release: carve
+}
+$('play').onclick = play;
+$('back').onclick = () => stepBy(-1);
+$('next').onclick = () => stepBy(1);
+$('step').oninput = () => stepBy(Number($('step').value) - step);
+document.addEventListener('keydown', (e) => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT') return;  // sliders and lists use these keys themselves
+  if (e.key === ' ' && tag !== 'BUTTON') { e.preventDefault(); play(); }  // on a button, Space presses it
+  if (e.key === 'ArrowLeft') stepBy(-1);
+  if (e.key === 'ArrowRight') stepBy(1);
+});
+
+// A link can choose the example, e.g. ?photo=broadway_small&method=graphcut&width=90
+const query = new URLSearchParams(location.search);
+if (Object.hasOwn(METHOD_NAMES, query.get('method') || '')) setMethod(query.get('method'));
+if (query.get('energy') === 'gradient') $('energy').value = 'gradient';
+const first = PHOTOS.includes(query.get('photo')) ? query.get('photo') : 'broadway';
+$('photo').value = first;
+loadPhoto(first, query.get('width'), query.get('height'));
+</script>
+</body>
+</html>
