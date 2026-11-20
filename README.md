@@ -155,7 +155,6 @@ web/
 bench/benchmark_energy.cpp    energy update benchmark                             Katie
 bench/evaluate.cpp            method comparison (quality, speed, scaling)         Asri
 bench/benchmark_dp.cpp        DP variants: time, memory, threads                  Ananth
-docs/Assignment 2 Report.docx the team report                                     all
 images/                       test photos (_small = 120 px wide, for Graph Cut)
 results/                      output (not committed)
 .github/workflows/tests.yml   CI: builds and runs tests on every push
